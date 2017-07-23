@@ -5,7 +5,9 @@ var nodemon = require('gulp-nodemon');
 var uglify = require('gulp-uglify');
 var util = require('gulp-util');
 var mocha = require('gulp-mocha');
+var todo = require('gulp-todo');
 var webpack = require('webpack-stream');
+var fs = require('fs');
 
 
 gulp.task('build', ['build-client', 'build-server', 'test']);
@@ -26,8 +28,13 @@ gulp.task('lint', function () {
 
 gulp.task('build-client', ['lint', 'move-client'], function () {
   return gulp.src(['src/client/js/app.js'])
+    .pipe(uglify())
     .pipe(webpack(require('./webpack.config.js')))
-    //.pipe(uglify())
+    .pipe(babel({
+      presets: [
+        ['es2015', { 'modules': false }]
+      ]
+    }))
     .pipe(gulp.dest('bin/client/js/'));
 });
 
@@ -43,10 +50,16 @@ gulp.task('build-server', ['lint'], function () {
     .pipe(gulp.dest('bin/server/'));
 });
 
-gulp.task('watch', ["build"], function () {
-  gulp.watch('src/client/**/*.*', ['build-client', 'move-client']);
-  gulp.watch('src/server/*.*', 'src/server/**/*.js', ['build-server']);
-  gulp.start('run');
+gulp.task('watch', ['build'], function () {
+  gulp.watch(['src/client/**/*.*'], ['build-client', 'move-client']);
+  gulp.watch(['src/server/*.*', 'src/server/**/*.js'], ['build-server']);
+  gulp.start('run-only');
+});
+
+gulp.task('todo', ['lint'], function() {
+  gulp.src('src/**/*.js')
+      .pipe(todo())
+      .pipe(gulp.dest('./'));
 });
 
 gulp.task('run', ['build'], function () {
@@ -61,3 +74,18 @@ gulp.task('run', ['build'], function () {
         util.log('server restarted!');
     });
 });
+
+gulp.task('run-only', function () {
+    nodemon({
+        delay: 10,
+        script: './server/server.js',
+        cwd: "./bin/",
+        args: ["config.json"],
+        ext: 'html js css'
+    })
+    .on('restart', function () {
+        util.log('server restarted!');
+    });
+});
+
+gulp.task('default', ['run']);
